@@ -1,0 +1,101 @@
+---
+Name: silvershop-address-formats
+After:
+  - silvershop-extensions
+---
+SilverShop\Model\Address:
+  extensions:
+    - SilverShop\AddressFormats\Extension\CustomerAddressExtension
+
+SilverShop\AddressFormats\AddressFormatRegistry:
+  formats:
+    default:
+      required: ['Address', 'City', 'PostalCode']
+      hidden: []
+      labels: {}
+      postcode_regex: ''
+      format:
+        - '{Address}'
+        - '{AddressLine2}'
+        - '{PostalCode} {City}'
+        - '{State}'
+        - '{Country}'
+    NL:
+      required: ['Address', 'PostalCode', 'City']
+      hidden: ['State']
+      labels:
+        PostalCode: 'Postcode'
+        City: 'Plaats'
+      postcode_regex: '/^[0-9]{4}\s?[A-Za-z]{2}$/'
+    BE:
+      required: ['Address', 'PostalCode', 'City']
+      hidden: ['State']
+      labels:
+        PostalCode: 'Postcode'
+      postcode_regex: '/^[0-9]{4}$/'
+    DE:
+      required: ['Address', 'PostalCode', 'City']
+      hidden: ['State']
+      labels:
+        PostalCode: 'PLZ'
+        City: 'Stadt'
+        Address: 'Straße und Hausnummer'
+      postcode_regex: '/^[0-9]{5}$/'
+    FR:
+      required: ['Address', 'PostalCode', 'City']
+      hidden: ['State']
+      labels:
+        PostalCode: 'Code postal'
+        City: 'Ville'
+      postcode_regex: '/^[0-9]{5}$/'
+    GB:
+      required: ['Address', 'City', 'PostalCode']
+      hidden: ['State']
+      labels:
+        PostalCode: 'Postcode'
+        City: 'Town / City'
+      postcode_regex: '/^[A-Za-z]{1,2}[0-9Rr][0-9A-Za-z]?\s?[0-9][ABD-HJLNP-UW-Zabd-hjlnp-uw-z]{2}$/'
+      format:
+        - '{Address}'
+        - '{AddressLine2}'
+        - '{City}'
+        - '{PostalCode}'
+        - '{Country}'
+    US:
+      required: ['Address', 'City', 'State', 'PostalCode']
+      hidden: []
+      labels:
+        PostalCode: 'ZIP code'
+        State: 'State'
+      postcode_regex: '/^[0-9]{5}(-[0-9]{4})?$/'
+      format:
+        - '{Address}'
+        - '{AddressLine2}'
+        - '{City}, {State} {PostalCode}'
+        - '{Country}'
+    NZ:
+      required: ['Address', 'City', 'PostalCode']
+      hidden: ['State']
+      labels:
+        PostalCode: 'Postcode'
+        City: 'Town / City'
+        AddressLine2: 'Suburb'
+      postcode_regex: '/^[0-9]{4}$/'
+      format:
+        - '{Address}'
+        - '{AddressLine2}'
+        - '{City} {PostalCode}'
+        - '{Country}'
+    AU:
+      required: ['Address', 'City', 'State', 'PostalCode']
+      hidden: []
+      labels:
+        PostalCode: 'Postcode'
+        City: 'Suburb / Town'
+        State: 'State / Territory'
+      postcode_regex: '/^[0-9]{4}$/'
+      format:
+        - '{Address}'
+        - '{AddressLine2}'
+        - '{City} {State} {PostalCode}'
+        - '{Country}'
