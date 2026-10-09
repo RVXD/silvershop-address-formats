@@ -19,11 +19,18 @@ class AddressFormatRegistry
 
     /**
      * Per-country rules keyed by ISO 3166-1 alpha-2, plus a `default` fallback. Each entry may set: required (string[]),
-     * hidden (string[]), labels (map), postcode_regex (string), format (string[] line templates).
+     * hidden (string[]), labels (map), postcode_regex (string), postcode_transform (string), format (string[] lines).
      *
      * @var array<string, array<string, mixed>>
      */
     private static array $formats = [];
+
+    /**
+     * When true, the front-end address form keeps every field in the DOM (hidden ones marked, not removed) and ships
+     * the client script that re-labels / shows-hides / re-requires fields live as the customer changes Country. When
+     * false, hidden fields are removed server-side (the pre-1.1 behaviour) and there is no client switching.
+     */
+    private static bool $live_country_switching = true;
 
     public function formatFor(?string $country): AddressFormat
     {
@@ -42,7 +49,41 @@ class AddressFormatRegistry
             (array) ($merged['labels'] ?? []),
             (string) ($merged['postcode_regex'] ?? ''),
             array_values((array) ($merged['format'] ?? [])),
+            (string) ($merged['postcode_transform'] ?? ''),
         );
+    }
+
+    /**
+     * Per-country rules for the client switcher, keyed by uppercase ISO code plus `default`. Each entry is
+     * `{labels, hidden, required, postcodePattern}` — everything the JS needs to re-render the address form without a
+     * round-trip. Field labels are the address fields the form manages (Address/AddressLine2/City/State/PostalCode).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function rulesForJs(): array
+    {
+        $fields = ['Address', 'AddressLine2', 'City', 'State', 'PostalCode'];
+        $codes = array_merge(['default'], $this->configuredCountries());
+
+        $rules = [];
+        foreach ($codes as $code) {
+            $format = $this->formatFor($code === 'default' ? '' : $code);
+            $labels = [];
+            foreach ($fields as $field) {
+                $label = $format->labelFor($field, '');
+                if ($label !== '') {
+                    $labels[$field] = $label;
+                }
+            }
+            $rules[$code] = [
+                'labels' => $labels,
+                'hidden' => array_values($format->getHidden()),
+                'required' => array_values($format->getRequired()),
+                'postcodePattern' => $format->htmlPostcodePattern(),
+            ];
+        }
+
+        return $rules;
     }
 
     /**

@@ -1,0 +1,3 @@
+es:
+  SilverShop\AddressFormats\Extension\CustomerAddressExtension:
+    InvalidPostcode: 'Introduzca un código postal válido para el país seleccionado.'

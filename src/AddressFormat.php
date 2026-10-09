@@ -17,6 +17,7 @@ class AddressFormat
      * @param array<string, string> $labels field name => label override
      * @param string        $postcodeRegex PCRE for the postcode, or '' to skip validation
      * @param string[]      $format        ordered line templates, e.g. '{PostalCode} {City}'
+     * @param string        $postcodeTransform normalisation applied on save: '', 'upper', 'nl' or 'ca'
      */
     public function __construct(
         private readonly string $country,
@@ -25,6 +26,7 @@ class AddressFormat
         private readonly array $labels,
         private readonly string $postcodeRegex,
         private readonly array $format,
+        private readonly string $postcodeTransform = '',
     ) {
     }
 
@@ -65,6 +67,11 @@ class AddressFormat
         return $this->postcodeRegex;
     }
 
+    public function getPostcodeTransform(): string
+    {
+        return $this->postcodeTransform;
+    }
+
     /** @return string[] */
     public function getFormat(): array
     {
@@ -82,5 +89,54 @@ class AddressFormat
         }
 
         return (bool) preg_match($this->postcodeRegex, trim($postcode));
+    }
+
+    /**
+     * The postcode pattern as an HTML5 `pattern` attribute value — the regex body without PCRE delimiters, flags or
+     * anchors (HTML patterns are implicitly anchored). Empty when the country has no regex.
+     */
+    public function htmlPostcodePattern(): string
+    {
+        $regex = $this->postcodeRegex;
+        if ($regex === '') {
+            return '';
+        }
+
+        // Strip the PCRE delimiter + trailing flags: /…/i, #…#, etc.
+        if (preg_match('/^(.)(.*)\1([a-zA-Z]*)$/s', $regex, $m)) {
+            $regex = $m[2];
+        }
+        // HTML patterns are implicitly anchored, so drop leading ^ / trailing $.
+        $regex = preg_replace('/^\^/', '', (string) $regex);
+        $regex = preg_replace('/\$$/', '', (string) $regex);
+
+        return (string) $regex;
+    }
+
+    /**
+     * Normalise a postcode to this country's canonical form (e.g. NL "1234ab" → "1234 AB"). Unknown/empty transform
+     * returns the trimmed input unchanged. Idempotent.
+     */
+    public function normalisePostcode(string $postcode): string
+    {
+        $value = trim($postcode);
+        if ($value === '') {
+            return '';
+        }
+
+        switch ($this->postcodeTransform) {
+            case 'upper':
+                return strtoupper($value);
+            case 'nl':
+                $compact = strtoupper((string) preg_replace('/\s+/', '', $value));
+                return preg_match('/^([0-9]{4})([A-Z]{2})$/', $compact, $m) ? $m[1] . ' ' . $m[2] : strtoupper($value);
+            case 'ca':
+                $compact = strtoupper((string) preg_replace('/\s+/', '', $value));
+                return preg_match('/^([A-Z][0-9][A-Z])([0-9][A-Z][0-9])$/', $compact, $m)
+                    ? $m[1] . ' ' . $m[2]
+                    : strtoupper($value);
+            default:
+                return $value;
+        }
     }
 }
