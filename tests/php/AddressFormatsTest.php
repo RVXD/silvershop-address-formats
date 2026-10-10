@@ -6,6 +6,7 @@ namespace SilverShop\AddressFormats\Tests;
 
 use SilverShop\AddressFormats\AddressFormatRegistry;
 use SilverShop\AddressFormats\AddressFormatter;
+use SilverShop\AddressFormats\Provider\AddressingRuleProvider;
 use SilverShop\Model\Address;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Dev\SapphireTest;
@@ -189,6 +190,41 @@ class AddressFormatsTest extends SapphireTest
         $rules = AddressFormatRegistry::singleton()->rulesForJs();
         $this->assertContains('HouseNumber', $rules['US']['hidden']);
         $this->assertNotContains('HouseNumber', $rules['NL']['hidden']);
+    }
+
+    public function testAddressingRuleProviderGivesGlobalCoverage(): void
+    {
+        if (!AddressingRuleProvider::available()) {
+            $this->markTestSkipped('commerceguys/addressing is not installed');
+        }
+
+        $registry = AddressFormatRegistry::singleton();
+
+        // Config mode (default): a country absent from YAML has no postcode rule.
+        $this->assertSame('', $registry->formatFor('BR')->getPostcodeRegex());
+
+        // Addressing mode: libaddressinput fills it in globally.
+        Config::modify()->set(AddressFormatRegistry::class, 'rule_provider', 'addressing');
+        $br = $registry->formatFor('BR');
+        $this->assertNotSame('', $br->getPostcodeRegex(), 'BR postcode pattern from libaddressinput');
+        $this->assertTrue($br->postcodeValid('01310-100'));
+        $this->assertFalse($br->isHidden('State'), 'BR uses an administrative area');
+
+        // YAML per-country overrides still win over the dataset.
+        $this->assertTrue($registry->formatFor('NL')->hasHouseNumber(), 'NL YAML override applied over addressing');
+    }
+
+    public function testAddressingRuleProviderShape(): void
+    {
+        if (!AddressingRuleProvider::available()) {
+            $this->markTestSkipped('commerceguys/addressing is not installed');
+        }
+
+        $rules = AddressingRuleProvider::singleton()->rulesFor('US');
+        $this->assertNotNull($rules);
+        $this->assertContains('State', $rules['required']);
+        $this->assertSame('ZIP code', $rules['labels']['PostalCode']);
+        $this->assertContains('{City}, {State} {PostalCode}', $rules['format']);
     }
 
     public function testFormatterCountryOrdering(): void

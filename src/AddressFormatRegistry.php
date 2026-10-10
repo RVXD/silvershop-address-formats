@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SilverShop\AddressFormats;
 
+use SilverShop\AddressFormats\Provider\AddressingRuleProvider;
 use SilverStripe\Core\Config\Configurable;
 use SilverStripe\Core\Injector\Injectable;
 
@@ -32,6 +33,12 @@ class AddressFormatRegistry
      */
     private static bool $live_country_switching = true;
 
+    /**
+     * Where per-country rules come from: `config` (the YAML `formats` only, default) or `addressing` (the global
+     * libaddressinput dataset via commerceguys/addressing, with YAML `formats` layered on top as overrides).
+     */
+    private static string $rule_provider = 'config';
+
     public function formatFor(?string $country): AddressFormat
     {
         $formats = (array) static::config()->get('formats');
@@ -40,7 +47,13 @@ class AddressFormatRegistry
         $code = strtoupper(trim((string) $country));
         $specific = ($code !== '' && isset($formats[$code])) ? (array) $formats[$code] : [];
 
-        $merged = array_merge($default, $specific);
+        $base = [];
+        if (static::config()->get('rule_provider') === 'addressing' && AddressingRuleProvider::available()) {
+            $base = AddressingRuleProvider::singleton()->rulesFor($code) ?? [];
+        }
+
+        // Precedence: YAML `default` < libaddressinput < YAML per-country override.
+        $merged = array_merge($default, $base, $specific);
 
         return new AddressFormat(
             $code,
