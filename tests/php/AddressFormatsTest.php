@@ -118,7 +118,7 @@ class AddressFormatsTest extends SapphireTest
 
     public function testPostcodeValidationOnModel(): void
     {
-        $base = ['Country' => 'NL', 'Address' => 'Straat 1', 'City' => 'Amsterdam'];
+        $base = ['Country' => 'NL', 'Address' => 'Straat', 'HouseNumber' => '1', 'City' => 'Amsterdam'];
 
         $bad = Address::create($base + ['PostalCode' => 'ABCDE']);
         $this->assertFalse($bad->validate()->isValid(), 'invalid NL postcode rejected');
@@ -133,7 +133,7 @@ class AddressFormatsTest extends SapphireTest
 
     public function testPostcodeNormalisedOnWrite(): void
     {
-        $nl = Address::create(['Country' => 'NL', 'Address' => 'Straat 1', 'City' => 'Amsterdam', 'PostalCode' => '1011ab']);
+        $nl = Address::create(['Country' => 'NL', 'Address' => 'Straat', 'HouseNumber' => '1', 'City' => 'Amsterdam', 'PostalCode' => '1011ab']);
         $nl->write();
         $this->assertSame('1011 AB', $nl->PostalCode, 'NL postcode normalised to 4 digits + space + upper letters');
 
@@ -144,6 +144,51 @@ class AddressFormatsTest extends SapphireTest
         $gb = Address::create(['Country' => 'GB', 'Address' => '1 St', 'City' => 'London', 'PostalCode' => 'sw1a 1aa']);
         $gb->write();
         $this->assertSame('SW1A 1AA', $gb->PostalCode);
+    }
+
+    public function testHouseNumberFieldForOptedInCountry(): void
+    {
+        $nl = Address::create(['Country' => 'NL']);
+        $fields = $nl->getFrontEndFields();
+
+        $hn = $fields->dataFieldByName('HouseNumber');
+        $this->assertNotNull($hn, 'HouseNumber field added for NL');
+        $this->assertSame('Huisnr.', $hn->Title());
+        $this->assertStringNotContainsString('addressformat-hidden', (string) $hn->extraClass(), 'shown for NL');
+        $this->assertSame('Straat', $fields->dataFieldByName('Address')->Title());
+        $this->assertArrayHasKey('HouseNumber', $nl->getRequiredFields());
+
+        $us = Address::create(['Country' => 'US']);
+        $usFields = $us->getFrontEndFields();
+        $usHn = $usFields->dataFieldByName('HouseNumber');
+        $this->assertNotNull($usHn, 'HouseNumber kept in the DOM (live switching) for US');
+        $this->assertStringContainsString('addressformat-hidden', (string) $usHn->extraClass(), 'hidden for US');
+        $this->assertArrayNotHasKey('HouseNumber', $us->getRequiredFields());
+    }
+
+    public function testHouseNumberComposedIntoAddressString(): void
+    {
+        $nl = Address::create([
+            'Country' => 'NL',
+            'Address' => 'Voorbeeldstraat',
+            'HouseNumber' => '1',
+            'City' => 'Amsterdam',
+            'PostalCode' => '1011 AB',
+        ]);
+        $this->assertStringContainsString('Voorbeeldstraat 1', $nl->toString());
+
+        $line = AddressFormatter::singleton()->format(
+            ['Address' => 'Voorbeeldstraat', 'HouseNumber' => '1', 'PostalCode' => '1011 AB', 'City' => 'Amsterdam', 'Country' => 'NL'],
+            'NL'
+        );
+        $this->assertStringContainsString('Voorbeeldstraat 1', $line);
+    }
+
+    public function testRulesForJsHidesHouseNumberWhereUnused(): void
+    {
+        $rules = AddressFormatRegistry::singleton()->rulesForJs();
+        $this->assertContains('HouseNumber', $rules['US']['hidden']);
+        $this->assertNotContains('HouseNumber', $rules['NL']['hidden']);
     }
 
     public function testFormatterCountryOrdering(): void

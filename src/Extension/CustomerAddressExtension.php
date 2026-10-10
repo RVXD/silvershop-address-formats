@@ -9,6 +9,7 @@ use SilverShop\AddressFormats\AddressFormatRegistry;
 use SilverStripe\Core\Extension;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\LiteralField;
+use SilverStripe\Forms\TextField;
 use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Model\ArrayData;
 
@@ -23,8 +24,16 @@ use SilverStripe\Model\ArrayData;
  */
 class CustomerAddressExtension extends Extension
 {
-    /** Address fields this extension manages on the front-end form. */
-    private const MANAGED_FIELDS = ['Address', 'AddressLine2', 'City', 'State', 'PostalCode'];
+    /** Address fields this extension manages on the front-end form (HouseNumber is created by this extension). */
+    private const MANAGED_FIELDS = ['Address', 'HouseNumber', 'AddressLine2', 'City', 'State', 'PostalCode'];
+
+    /**
+     * Optional separate house-number field, used by countries configured with `house_number: true` (e.g. NL, DE).
+     * Nullable + off by default, so existing installs are unaffected until a country opts in.
+     */
+    private static array $db = [
+        'HouseNumber' => 'Varchar(20)',
+    ];
 
     /**
      * Relabel / hide address fields per the address's country. With live switching on, hidden fields are kept in the
@@ -35,13 +44,24 @@ class CustomerAddressExtension extends Extension
         $format = $this->formatFor();
         $live = (bool) AddressFormatRegistry::config()->get('live_country_switching');
 
+        // Core doesn't provide a HouseNumber field; add it next to Address when any country could use it.
+        if (!$fields->dataFieldByName('HouseNumber')
+            && $fields->dataFieldByName('Address')
+            && ($live || $format->hasHouseNumber())
+        ) {
+            $fields->insertAfter('Address', TextField::create('HouseNumber', $format->labelFor('HouseNumber', 'No.')));
+        }
+
         foreach (self::MANAGED_FIELDS as $name) {
             $field = $fields->dataFieldByName($name);
             if (!$field) {
                 continue;
             }
 
-            if (!$live && $format->isHidden($name)) {
+            // HouseNumber is shown only where the country opts in (inverse of the explicit `hidden` list).
+            $hidden = $name === 'HouseNumber' ? !$format->hasHouseNumber() : $format->isHidden($name);
+
+            if (!$live && $hidden) {
                 $fields->removeByName($name);
                 continue;
             }
@@ -53,7 +73,7 @@ class CustomerAddressExtension extends Extension
             }
 
             $field->setAttribute('data-addressformat-field', $name);
-            if ($format->isHidden($name)) {
+            if ($hidden) {
                 $field->addExtraClass('addressformat-hidden');
             }
             if ($name === 'PostalCode' && ($pattern = $format->htmlPostcodePattern()) !== '') {
@@ -81,6 +101,32 @@ class CustomerAddressExtension extends Extension
         }
         foreach ($format->getRequired() as $name) {
             $fields[$name] = $name;
+        }
+        if (!$format->hasHouseNumber()) {
+            unset($fields['HouseNumber']);
+        }
+    }
+
+    /**
+     * Compose the separate house number back into the address line for single-string rendering (toString/getTitle),
+     * so stored/displayed addresses stay whole for countries that split it.
+     *
+     * @param array<int, string|int|null> $fields the flat address values core joins into a string, by reference
+     */
+    public function updateToString(array &$fields): void
+    {
+        $owner = $this->getOwner();
+        $houseNumber = trim((string) $owner->HouseNumber);
+        $street = (string) $owner->Address;
+        if ($houseNumber === '' || $street === '' || !$this->formatFor()->hasHouseNumber()) {
+            return;
+        }
+
+        foreach ($fields as $i => $value) {
+            if ((string) $value === $street) {
+                $fields[$i] = trim($street . ' ' . $houseNumber);
+                break;
+            }
         }
     }
 

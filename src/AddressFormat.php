@@ -18,6 +18,7 @@ class AddressFormat
      * @param string        $postcodeRegex PCRE for the postcode, or '' to skip validation
      * @param string[]      $format        ordered line templates, e.g. '{PostalCode} {City}'
      * @param string        $postcodeTransform normalisation applied on save: '', 'upper', 'nl' or 'ca'
+     * @param bool          $houseNumber   whether this country uses a separate house-number field
      */
     public function __construct(
         private readonly string $country,
@@ -27,7 +28,16 @@ class AddressFormat
         private readonly string $postcodeRegex,
         private readonly array $format,
         private readonly string $postcodeTransform = '',
+        private readonly bool $houseNumber = false,
     ) {
+    }
+
+    /**
+     * Whether this country splits the street address into a separate house-number field.
+     */
+    public function hasHouseNumber(): bool
+    {
+        return $this->houseNumber;
     }
 
     public function getCountry(): string

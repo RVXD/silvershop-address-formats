@@ -50,6 +50,7 @@ class AddressFormatRegistry
             (string) ($merged['postcode_regex'] ?? ''),
             array_values((array) ($merged['format'] ?? [])),
             (string) ($merged['postcode_transform'] ?? ''),
+            (bool) ($merged['house_number'] ?? false),
         );
     }
 
@@ -62,7 +63,7 @@ class AddressFormatRegistry
      */
     public function rulesForJs(): array
     {
-        $fields = ['Address', 'AddressLine2', 'City', 'State', 'PostalCode'];
+        $fields = ['Address', 'HouseNumber', 'AddressLine2', 'City', 'State', 'PostalCode'];
         $codes = array_merge(['default'], $this->configuredCountries());
 
         $rules = [];
@@ -75,9 +76,14 @@ class AddressFormatRegistry
                     $labels[$field] = $label;
                 }
             }
+            // HouseNumber is hidden unless the country uses it (inverse of the explicit `hidden` list).
+            $hidden = array_values($format->getHidden());
+            if (!$format->hasHouseNumber()) {
+                $hidden[] = 'HouseNumber';
+            }
             $rules[$code] = [
                 'labels' => $labels,
-                'hidden' => array_values($format->getHidden()),
+                'hidden' => $hidden,
                 'required' => array_values($format->getRequired()),
                 'postcodePattern' => $format->htmlPostcodePattern(),
             ];

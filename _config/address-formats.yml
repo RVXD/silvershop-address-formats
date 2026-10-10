@@ -22,13 +22,21 @@ SilverShop\AddressFormats\AddressFormatRegistry:
         - '{State}'
         - '{Country}'
     NL:
-      required: ['Address', 'PostalCode', 'City']
+      required: ['Address', 'HouseNumber', 'PostalCode', 'City']
       hidden: ['State']
+      house_number: true
       labels:
+        Address: 'Straat'
+        HouseNumber: 'Huisnr.'
         PostalCode: 'Postcode'
         City: 'Plaats'
       postcode_regex: '/^[0-9]{4}\s?[A-Za-z]{2}$/'
       postcode_transform: 'nl'
+      format:
+        - '{Address} {HouseNumber}'
+        - '{AddressLine2}'
+        - '{PostalCode} {City}'
+        - '{Country}'
     BE:
       required: ['Address', 'PostalCode', 'City']
       hidden: ['State']
@@ -36,13 +44,20 @@ SilverShop\AddressFormats\AddressFormatRegistry:
         PostalCode: 'Postcode'
       postcode_regex: '/^[0-9]{4}$/'
     DE:
-      required: ['Address', 'PostalCode', 'City']
+      required: ['Address', 'HouseNumber', 'PostalCode', 'City']
       hidden: ['State']
+      house_number: true
       labels:
         PostalCode: 'PLZ'
         City: 'Stadt'
-        Address: 'Straße und Hausnummer'
+        Address: 'Straße'
+        HouseNumber: 'Hausnr.'
       postcode_regex: '/^[0-9]{5}$/'
+      format:
+        - '{Address} {HouseNumber}'
+        - '{AddressLine2}'
+        - '{PostalCode} {City}'
+        - '{Country}'
     FR:
       required: ['Address', 'PostalCode', 'City']
       hidden: ['State']

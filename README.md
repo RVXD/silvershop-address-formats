@@ -22,6 +22,8 @@ safe `default` that keeps existing behaviour where no country rule applies.
   customer changes Country*, with a no-JS baseline. Overridable template + JS (see below).
 - **Postcode validation + normalisation** — the per-country `postcode_regex` is enforced on the model *and* exposed as
   an HTML5 `pattern`, and postcodes are normalised on save (e.g. NL `1234ab` → `1234 AB`, GB/CA upper-cased).
+- **House-number split** (opt-in per country, e.g. NL/DE) — a separate `HouseNumber` field on the customer address,
+  composed back into the address string for display. Off by default; nullable column.
 - Ships rules for **~23 countries** (NL, BE, DE, FR, GB, US, NZ, AU, AT, CH, CZ, DK, ES, FI, IE, IT, LU, NO, PL, PT,
   SE, CA, JP) + a `default`; add or override any country in YAML.
 
@@ -65,6 +67,24 @@ SilverShop\AddressFormats\AddressFormatRegistry:
       postcode_regex: ''
 ```
 
+## House-number split
+
+Countries configured with `house_number: true` (ships for **NL** and **DE**) get a separate `HouseNumber` input
+beside the street, and the number is composed back into the single-line address (via `updateToString`) so stored and
+displayed addresses stay whole. It adds a nullable `HouseNumber` column to the customer `Address` — **run `dev/build`**
+after enabling. Off for every other country; existing data is untouched (the street stays in `Address`). Enable it for
+another country in YAML:
+
+```yaml
+SilverShop\AddressFormats\AddressFormatRegistry:
+  formats:
+    AT:
+      house_number: true
+      required: ['Address', 'HouseNumber', 'PostalCode', 'City']
+      labels: {Address: 'Straße', HouseNumber: 'Hausnr.'}
+      format: ['{Address} {HouseNumber}', '{PostalCode} {City}', '{Country}']
+```
+
 ## Postcode rules
 
 Each country may set a `postcode_regex` (enforced on the model + surfaced as an HTML5 `pattern`) and an optional
@@ -73,8 +93,8 @@ regex skips validation; presence is governed by `required`.
 
 ## Status
 
-v1.1 — per-country labels / required / hidden / formatter + the checkout blocker fix, **live country switching**, and
-**postcode validation + normalisation** across ~23 countries. **i18n:** the per-country field *labels* are
+v1.2 — per-country labels / required / hidden / formatter + the checkout blocker fix, live country switching,
+postcode validation + normalisation across ~23 countries, and an **opt-in house-number split** (NL/DE). **i18n:** the per-country field *labels* are
 configuration data (not translatable); the only UI string is the postcode validation message, shipped in en + nl +
 de + fr + es + it. Planned: `HouseNumber` split (NL/DE) and a pluggable libaddressinput provider for full global
 coverage — see [`PLAN-address-formats-v1.1.md`](https://github.com/RVXD/silvershop-store-profile) in the consuming
